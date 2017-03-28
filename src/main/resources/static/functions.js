@@ -1,45 +1,27 @@
-var subscription = null;
-var newQuery = 0;
+var app = angular.module('myApp', []);
+app.controller('lab0Ctrl', function($scope) {
+	//Connect to STOMP over WS
+	var socket = new SockJS('/twitter');
+	client = Stomp.over(socket);
+	client.connect({}, function(frame) {console.log(frame)}, function(err) {console.log(err);});
 
-function registerTemplate() {
-	var template = $("#template").html();
-	Mustache.parse(template);
-}
+	sub = undefined;
+    $scope.tweets= [];
+    // New search
+    this.tweets = function (){
+		if(sub !== undefined){
+			//Unsuscribe
+			sub.unsubscribe();
+			$scope.tweets=[];
+		}
 
-function setConnected(connected) {
-	var search = $('#submitsearch');
-	search.prop('disabled', !connected);
-}
-
-function registerSendQueryAndConnect() {
-    var socket = new SockJS("/twitter");
-    var stompClient = Stomp.over(socket);
-    stompClient.connect({}, function(frame) {
-        setConnected(true);
-        console.log('Connected: ' + frame);
-    });
-	$("#search").submit(
-			function(event) {
-				event.preventDefault();
-				if (subscription) {
-					subscription.unsubscribe();
-				}
-				var query = $("#q").val();
-				stompClient.send("/app/search", {}, query);
-				newQuery = 1;
-				subscription = stompClient.subscribe("/queue/search/" + query, function(data) {
-					var resultsBlock = $("#resultsBlock");
-					if (newQuery) {
-                        resultsBlock.empty();
-						newQuery = 0;
-					}
-					var tweet = JSON.parse(data.body);
-                    resultsBlock.prepend(Mustache.render(template, tweet));
-				});
-			});
-}
-
-$(document).ready(function() {
-	registerTemplate();
-	registerSendQueryAndConnect();
+		//Get value and sent it
+		var q_ = $("#q").val();
+		//Subscribe
+		client.send("/app/search", {}, q_);
+		sub = client.subscribe("/queue/search/" + q_, function(m) {
+            $scope.tweets.unshift(JSON.parse(m.body));
+            $scope.$apply();
+		});
+      };
 });
